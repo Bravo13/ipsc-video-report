@@ -1,5 +1,5 @@
 import config from 'config';
-import ffmpeg from 'fluent-ffmpeg';
+import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
 import winston from 'winston';
 import fetch from 'node-fetch';
 
@@ -7,6 +7,7 @@ import {Stage} from 'types/Stage';
 import { StageResult } from 'types/StageResult';
 import { Person } from 'types/Person';
 import { MatchResult } from 'types/MatchResult';
+import { getTextPositionValue, TextOverlayConfig } from 'types/TextOverlayConfig';
 
 const logger = winston.createLogger({
     level: config.get("logger.level"),
@@ -21,16 +22,36 @@ const logger = winston.createLogger({
 
 logger.info("Started");
 
-fetchResults(config.get("report.results"))
-    .then(buildVideo(config.get("report.video") as string[]))
-    .catch((e) => logger.error(e));
-
 function buildVideo(videoList: string[]) {
     logger.info("Building videorenderer");
     return async function(results: {overall: MatchResult, division: MatchResult, stages: Stage[]}) {
-        console.log(results);
         logger.info("Preparing video");
     }    
+}
+
+function videoGenTitle(path: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any) {
+    const command = ffmpeg('color=black:size='+videoConfig.size+':rate='+videoConfig.rate+':duration='+duration).inputFormat('lavfi');
+    command.complexFilter([
+        {
+            filter: 'drawtext',
+            options: {
+                fontsize: textConfig.font.size,
+                fontcolor: textConfig.font.color,
+                x: getTextPositionValue(textConfig.position, "x"),
+                y: getTextPositionValue(textConfig.position, "y"),
+                text
+            },
+        }
+    ]);
+
+    return new Promise((resolve, reject) => {
+        command
+            .output(path)
+            .on('start', (commandString) => console.log(`starting ${commandString}`))
+            .on('error', (e) => reject(e))
+            .on('end', () => resolve(path))
+            .run();
+    })
 }
 
 async function fetchResults(url:string){
