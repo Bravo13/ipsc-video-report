@@ -6,6 +6,7 @@ import fetch from 'node-fetch';
 import {Stage} from 'types/Stage';
 import { StageResult } from 'types/StageResult';
 import { Person } from 'types/Person';
+import { MatchResult } from 'types/MatchResult';
 
 const logger = winston.createLogger({
     level: config.get("logger.level"),
@@ -26,7 +27,7 @@ fetchResults(config.get("report.results"))
 
 function buildVideo(videoList: string[]) {
     logger.info("Building videorenderer");
-    return async function(results: Stage[]) {
+    return async function(results: {overall: MatchResult, division: MatchResult, stages: Stage[]}) {
         console.log(results);
         logger.info("Preparing video");
     }    
@@ -48,6 +49,9 @@ async function fetchResults(url:string){
         baseUrl + '/match_scores.json',
         baseUrl + '/match_def.json'
     ]
+
+    let matchDivisionResult: MatchResult;
+    let matchOverallResult: MatchResult;
 
     let stageList:Stage[] = [];
     const [results, matchScore, matchDef] = await Promise.all(jsonUrls.map(url => fetch(url).then(resp => resp.json())));
@@ -74,6 +78,48 @@ async function fetchResults(url:string){
         throw Error("No stages data in matchDef.json");
     }
 
+    if(
+        results[0]
+        && results[0]['Match']
+    ) {
+        const matchResults = results[0]['Match'].find((obj:any) => obj[person.division]);
+        const overallResults = results[0]['Match'].find((obj:any) => obj['Overall']);
+
+        if(!matchResults){
+            throw new Error("Unable to find match results for person division");
+        }
+
+        const matchResultData = matchResults[person.division].find((res:any) => res.shooter == person.id);
+        if(!matchResultData){
+            throw new Error("Unable to find math result for person in division list");
+        } else {
+            matchDivisionResult = {
+                percent: matchResultData.matchPercent,
+                person: person,
+                place: matchResultData.pscPlace,
+                points: matchResultData.matchPoints
+            }
+        }
+
+        if(!overallResults){
+            throw new Error("Unable to find overall match results for person");
+        }
+
+        const overallResultData = overallResults['Overall'].find((res:any) => res.shooter == person.id);
+        if(!overallResultData){
+            throw new Error("Unable to find math result for person in division list");
+        } else {
+            matchOverallResult = {
+                percent: overallResultData.matchPercent,
+                person: person,
+                place: overallResultData.pscPlace,
+                points: overallResultData.matchPoints
+            }
+        }
+    } else {
+        throw new Error("Something went wrong with getting match result");
+    }
+
     let stageResults: {[key: string]: StageResult} = {};
     Object.keys(results).forEach((resultKey:any) => {
         const result = results[resultKey];
@@ -96,7 +142,7 @@ async function fetchResults(url:string){
                     points: personResult.points,
                     stagePoints: personResult.stagePoints,
                     stagePercent: personResult.stagePercent,
-                    time: personResult.stageTimeSec,
+                    time: personResult.stageTimeSecs,
                     penalties: personResult.penalties
                 }
             });
@@ -115,5 +161,9 @@ async function fetchResults(url:string){
 
         stageList.push(stage);
     })
-    return stageList; 
+    return {
+        division: matchDivisionResult,
+        overall: matchOverallResult,
+        stages: stageList
+    }; 
 }
