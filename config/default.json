@@ -1,5 +1,13 @@
 {
     "logger":{
         "level":"debug"
+    },
+    "report":{
+        "video":[
+            "/tmp/1.mp4",
+            "/tmp/2.mp4"
+        ],
+        "results":"https://practiscore.com/results/new/65dea804-296c-486f-86a6-ec0d199c7a0c?q_individual=5d48107b-84f5-432f-8985-3d18881cbea0",
+        "outpupt":"/tmp/result.mov"
     }
 }
