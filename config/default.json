@@ -2,22 +2,35 @@
     "logger":{
         "level":"debug"
     },
+    "ffmpeg":{
+        "path":"/home/bravo13/projects/ffmpeg/ffmpeg"
+    },
     "report":{
-        "size":"1920x1080",
+        "type": "general",
+        "size":"640x480",
         "rate":"60",
         "baseDir":"/mnt/c/Users/godov/video",
+        "fade": {
+            "duration": 2
+        },
         "video":[
-            "1.mp4",
-            "2.mp4"
+            "img_1779.mov",
+            "img_1780.mov",
+            {
+                "path":"img_1777.mov"
+            }, {
+                "path":"img_1778.mov"
+            }
         ],
         "title": {
             "font":"Arial",
-            "size":10,
+            "size":64,
+            "duration":3,
             "color":"0xffffff",
             "background":"0x000000",
-            "position":"leftBottom"
+            "position":"center",
+            "text": "Тренировка"
         },
-        "results":"https://practiscore.com/results/new/65dea804-296c-486f-86a6-ec0d199c7a0c?q_individual=5d48107b-84f5-432f-8985-3d18881cbea0",
         "outpupt":"/tmp/result.mov"
     }
 }

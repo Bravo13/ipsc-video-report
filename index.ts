@@ -1,6 +1,6 @@
 import config from 'config';
 import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
-import winston from 'winston';
+import winston, { verbose } from 'winston';
 import fetch from 'node-fetch';
 
 import {Stage} from 'types/Stage';
@@ -8,6 +8,7 @@ import { StageResult } from 'types/StageResult';
 import { Person } from 'types/Person';
 import { MatchResult } from 'types/MatchResult';
 import { getTextPositionValue, TextOverlayConfig } from 'types/TextOverlayConfig';
+import { VideoConfig } from 'types/VideoConfig';
 
 const logger = winston.createLogger({
     level: config.get("logger.level"),
@@ -22,11 +23,153 @@ const logger = winston.createLogger({
 
 logger.info("Started");
 
+if(config.has("ffmpeg.path")){
+    logger.info(`Using custom ffmpeg path ${config.get("ffmpeg.path")}`);
+    process.env.FFMPEG_PATH = config.get("ffmpeg.path");
+}
+
+/*
+fetchResults(config.get("report.results"))
+    .then(buildVideo(config.get("report.video") as string[]))
+    .catch((e) => logger.error(e));
+*/
+
+
 function buildVideo(videoList: string[]) {
     logger.info("Building videorenderer");
     return async function(results: {overall: MatchResult, division: MatchResult, stages: Stage[]}) {
         logger.info("Preparing video");
     }    
+}
+
+const videoOpt = {
+    size: config.get('report.size'),
+    rate: config.get('report.rate')
+}
+
+const merge = ffmpeg();
+let workers:any[] = [];
+let videos:[] = config.get('report.video');
+
+if(config.get('report.type') == 'general'){
+    const opt:TextOverlayConfig = {
+        font: {
+            color: config.get('report.title.color'),
+            name: config.get('report.title.font'),
+            size: config.get('report.title.size'),
+        },
+        position: config.get('report.title.position')
+    };
+    const path = config.get('report.baseDir') + '/' + 'title.mov';
+    const duration:number = config.get('report.title.duration');
+    workers.push(videoGenTitle( path, duration, config.get('report.title.text'), opt, videoOpt));
+    merge.input(path);
+}
+
+for(const video of videos) {
+    let videoConfig:VideoConfig;
+    if(typeof video == 'object'){
+        videoConfig = {
+            path: config.get('report.baseDir') + '/' + video['path']
+        };
+    } else {
+        videoConfig = {
+            path: config.get('report.baseDir') + '/' + video
+        }
+    }
+
+    const command = ffmpeg(videoConfig.path).size(videoOpt.size as string).fps(videoOpt.rate as number);
+    const resultPath = videoConfig.path + '.resized.mov';
+    merge.input(resultPath);
+    const pCommand = new Promise((resolve, reject) => {
+        command
+            .on('start', (commandString) => console.log(`starting ${commandString}`))
+            .on('error', (e) => reject(e))
+            .on('end', () => resolve(resultPath))
+            .output(resultPath)
+            .run()
+    })
+    workers.push(pCommand);
+}
+
+Promise.all(workers).then(async (paths) => {
+    const filters = await prepareTransitionFilters(paths);
+    
+    merge.complexFilter(filters, filters[filters.length-1].outputs);
+    merge
+        .on('start', (cli) => console.log('Start merging '+cli))
+        .on('end', () => console.log('End merging'))
+        .output(config.get('report.baseDir') + '/result.mov')
+        .run()
+        //.mergeToFile(config.get('report.baseDir') + '/result.mov', config.get('report.baseDir'))
+})
+.catch((e) => {
+    console.error('ERROR', e);
+})
+
+async function prepareTransitionFilters(paths: string[]) {
+    let index = 0;
+    let transitions:ffmpeg.FilterSpecification[] = [];
+    let lastOutput = '0';
+    let lastXfadeOffset =  0;
+    for(const path of paths.slice(0, -1)){
+        const meta:ffmpeg.FfprobeFormat = await getVideoMeta(path);
+        const duration = meta.format.duration;
+        let output = `v${index+1}`;
+        const xfadeDuration:number = config.get('report.fade.duration');
+        lastXfadeOffset = duration + lastXfadeOffset - xfadeDuration;
+        lastXfadeOffset = +lastXfadeOffset.toFixed(2);
+        transitions.push({
+            filter: 'xfade',
+            options: {
+                transition:'fade',
+                duration: config.get('report.fade.duration'),
+                offset: lastXfadeOffset
+            },
+            inputs: [`${lastOutput}`, `${index+1}`],
+            outputs: output
+        });
+        lastOutput = output;
+        index++;
+    }
+    return transitions;
+}
+
+async function getVideoMeta(path: string):Promise<ffmpeg.FfprobeFormat> {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(path, (err, meta) => {
+            if(err)
+                reject(err)
+            else
+                resolve(meta)
+        })
+    })
+}
+
+function videoAddOverlay(path: string, output: string, text:string, textConfig: TextOverlayConfig, videoConfig: any) {
+    const command = ffmpeg(path);
+
+    command.complexFilter([
+        {
+            filter: 'drawtext',
+            options: {
+                fontsize: textConfig.font.size,
+                fontcolor: textConfig.font.color,
+                x: getTextPositionValue(textConfig.position, "x"),
+                y: getTextPositionValue(textConfig.position, "y"),
+                text
+            },
+        }
+    ]);
+
+    return new Promise((resolve, reject) => {
+        command
+            .output(path)
+            .on('start', (commandString) => console.log(`starting ${commandString}`))
+            .on('error', (e) => reject(e))
+            .on('end', () => resolve(path))
+            .run();
+    })
 }
 
 function videoGenTitle(path: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any) {
