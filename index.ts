@@ -78,7 +78,7 @@ for(const video of videos) {
         }
     }
 
-    const command = ffmpeg(videoConfig.path).size(videoOpt.size as string).fps(videoOpt.rate as number);
+    const command = ffmpeg(videoConfig.path).size(videoOpt.size as string).fps(videoOpt.rate as number).audioCodec('copy');
     const resultPath = videoConfig.path + '.resized.mov';
     merge.input(resultPath);
     const pCommand = new Promise((resolve, reject) => {
@@ -96,6 +96,7 @@ Promise.all(workers).then(async (paths) => {
     const filters = await prepareTransitionFilters(paths);
     
     merge.complexFilter(filters, filters[filters.length-1].outputs);
+    merge.audioCodec('copy')
     merge
         .on('start', (cli) => console.log('Start merging '+cli))
         .on('end', () => console.log('End merging'))
