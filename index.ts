@@ -93,10 +93,9 @@ for(const video of videos) {
 }
 
 Promise.all(workers).then(async (paths) => {
-    const filters = await prepareTransitionFilters(paths);
+    const {transitions, outputs} = await prepareTransitionFilters(paths);
     
-    merge.complexFilter(filters, filters[filters.length-1].outputs);
-    merge.audioCodec('copy')
+    merge.complexFilter(transitions, outputs);
     merge
         .on('start', (cli) => console.log('Start merging '+cli))
         .on('end', () => console.log('End merging'))
@@ -110,30 +109,47 @@ Promise.all(workers).then(async (paths) => {
 
 async function prepareTransitionFilters(paths: string[]) {
     let index = 0;
-    let transitions:ffmpeg.FilterSpecification[] = [];
-    let lastOutput = '0';
+    let videoTransitions:ffmpeg.FilterSpecification[] = [];
+    let audioTransitions:ffmpeg.FilterSpecification[] = [];
+    let lastVideoOutput = '0';
+    let lastAudioOutput = '0:a';
     let lastXfadeOffset =  0;
     for(const path of paths.slice(0, -1)){
         const meta:ffmpeg.FfprobeFormat = await getVideoMeta(path);
         const duration = meta.format.duration;
-        let output = `v${index+1}`;
         const xfadeDuration:number = config.get('report.fade.duration');
         lastXfadeOffset = duration + lastXfadeOffset - xfadeDuration;
         lastXfadeOffset = +lastXfadeOffset.toFixed(2);
-        transitions.push({
+        videoTransitions.push({
             filter: 'xfade',
             options: {
                 transition:'fade',
                 duration: config.get('report.fade.duration'),
                 offset: lastXfadeOffset
             },
-            inputs: [`${lastOutput}`, `${index+1}`],
-            outputs: output
+            inputs: [`${lastVideoOutput}`, `${index+1}:v`],
+            outputs: `v${index+1}`
         });
-        lastOutput = output;
+        lastVideoOutput = `v${index+1}`;
+
+        // Audio crossfade
+        audioTransitions.push({
+            filter:'acrossfade',
+            options: {
+                duration: config.get('report.fade.duration'),
+                curve1: "exp",
+                curve2: "exp"
+            },
+            inputs:[`${lastAudioOutput}`, `${index+1}:a`],
+            outputs: `a${index+1}`
+        })
+        lastAudioOutput = `a${index+1}`;
         index++;
     }
-    return transitions;
+    return {
+        transitions: videoTransitions.concat(audioTransitions),
+        outputs: [lastVideoOutput, lastAudioOutput]
+    };
 }
 
 async function getVideoMeta(path: string):Promise<ffmpeg.FfprobeFormat> {
