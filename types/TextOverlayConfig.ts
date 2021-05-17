@@ -45,6 +45,5 @@ const TextPositionToXY = {
 };
 
 export function getTextPositionValue(position: TextPosition, coordName:("x"|"y")){
-    console.log("Pos", position, TextPosition.center);
     return TextPositionToXY[position][coordName];
 };
