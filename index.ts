@@ -43,7 +43,9 @@ function buildVideo(videoList: string[]) {
 }
 
 const videoOpt = {
-    size: config.get('report.size'),
+    size: `${config.get('report.size.w')}x${config.get('report.size.h')}`,
+    width: config.get('report.size.w'),
+    height: config.get('report.size.h'),
     rate: config.get('report.rate')
 }
 
@@ -78,7 +80,9 @@ for(const video of videos) {
         }
     }
 
-    const command = ffmpeg(videoConfig.path).size(videoOpt.size as string).fps(videoOpt.rate as number).audioCodec('copy');
+    const command = ffmpeg(videoConfig.path);
+    command.videoFilter(`scale=w=${videoOpt.width}:h=${videoOpt.height}:force_original_aspect_ratio=decrease`)
+    command.fps(videoOpt.rate as number).audioCodec('copy');
     const resultPath = videoConfig.path + '.resized.mov';
     merge.input(resultPath);
     const pCommand = new Promise((resolve, reject) => {
@@ -190,7 +194,10 @@ function videoAddOverlay(path: string, output: string, text:string, textConfig: 
 }
 
 function videoGenTitle(path: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any) {
-    const command = ffmpeg('color=black:size='+videoConfig.size+':rate='+videoConfig.rate+':duration='+duration).inputFormat('lavfi');
+    const command = ffmpeg('color=black:size='+videoConfig.size+':rate='+videoConfig.rate+':duration='+duration)
+    command.inputFormat('lavfi');
+    command.input('anullsrc=channel_layout=stereo:sample_rate=44100')
+    command.inputFormat('lavfi');
     command.complexFilter([
         {
             filter: 'drawtext',
@@ -203,6 +210,7 @@ function videoGenTitle(path: string, duration: number, text: string, textConfig:
             },
         }
     ]);
+    command.outputOption('-shortest')
 
     return new Promise((resolve, reject) => {
         command

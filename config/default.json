@@ -7,20 +7,23 @@
     },
     "report":{
         "type": "general",
-        "size":"640x480",
+        "size": {
+            "w": 640,
+            "h": 360
+        },
         "rate":"60",
         "baseDir":"/mnt/c/Users/godov/video",
         "fade": {
-            "duration": 2
+            "duration": 0.5
         },
         "video":[
-            "img_1779.mov",
-            "img_1780.mov",
             {
                 "path":"img_1777.mov"
             }, {
                 "path":"img_1778.mov"
-            }
+            },
+            "img_1779.mov",
+            "img_1780.mov"
         ],
         "title": {
             "font":"Arial",
