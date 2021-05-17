@@ -72,8 +72,13 @@ for(const video of videos) {
     let videoConfig:VideoConfig;
     if(typeof video == 'object'){
         videoConfig = {
-            path: config.get('report.baseDir') + '/' + video['path']
+            path: config.get('report.baseDir') + '/' + video['path'],
         };
+
+        if(typeof video['subtitle'] == 'object'){
+            videoConfig.subtitle = video['subtitle'] as TextOverlayConfig;
+            videoConfig.text = video['text'];
+        }
     } else {
         videoConfig = {
             path: config.get('report.baseDir') + '/' + video
@@ -81,11 +86,31 @@ for(const video of videos) {
     }
 
     const command = ffmpeg(videoConfig.path);
-    command.videoFilter(`scale=w=${videoOpt.width}:h=${videoOpt.height}:force_original_aspect_ratio=decrease`)
+    let output = 'sc'
+    let filters:ffmpeg.FilterSpecification[] = [
+        {
+            filter:'scale',
+            options: {
+                w:videoOpt.width,
+                h:videoOpt.height,
+                force_original_aspect_ratio: 'decrease'
+            },
+            inputs: '0:v',
+            outputs: output
+        }
+    ]
     command.fps(videoOpt.rate as number).audioCodec('copy');
-    const resultPath = videoConfig.path + '.resized.mov';
+    const resultPath:string = videoConfig.path + '.resized.mov';
     merge.input(resultPath);
-    const pCommand = new Promise((resolve, reject) => {
+
+    if(videoConfig.subtitle && videoConfig.text){
+        filters.push(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
+        output = 'ov';
+    }
+    command.complexFilter(filters, output);
+    command.addOption('-map 0:a');
+
+    const pCommand:Promise<string>= new Promise((resolve, reject) => {
         command
             .on('start', (commandString) => console.log(`starting ${commandString}`))
             .on('error', (e) => reject(e))
@@ -93,6 +118,7 @@ for(const video of videos) {
             .output(resultPath)
             .run()
     })
+
     workers.push(pCommand);
 }
 
@@ -167,11 +193,8 @@ async function getVideoMeta(path: string):Promise<ffmpeg.FfprobeFormat> {
     })
 }
 
-function videoAddOverlay(path: string, output: string, text:string, textConfig: TextOverlayConfig, videoConfig: any) {
-    const command = ffmpeg(path);
-
-    command.complexFilter([
-        {
+function videoAddOverlay(inputs: string | string[], outputs: string | string[], text:string, textConfig: TextOverlayConfig) {
+    return {
             filter: 'drawtext',
             options: {
                 fontsize: textConfig.font.size,
@@ -180,17 +203,9 @@ function videoAddOverlay(path: string, output: string, text:string, textConfig: 
                 y: getTextPositionValue(textConfig.position, "y"),
                 text
             },
-        }
-    ]);
-
-    return new Promise((resolve, reject) => {
-        command
-            .output(path)
-            .on('start', (commandString) => console.log(`starting ${commandString}`))
-            .on('error', (e) => reject(e))
-            .on('end', () => resolve(path))
-            .run();
-    })
+            inputs,
+            outputs
+        };
 }
 
 function videoGenTitle(path: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any) {
@@ -199,18 +214,10 @@ function videoGenTitle(path: string, duration: number, text: string, textConfig:
     command.input('anullsrc=channel_layout=stereo:sample_rate=44100')
     command.inputFormat('lavfi');
     command.complexFilter([
-        {
-            filter: 'drawtext',
-            options: {
-                fontsize: textConfig.font.size,
-                fontcolor: textConfig.font.color,
-                x: getTextPositionValue(textConfig.position, "x"),
-                y: getTextPositionValue(textConfig.position, "y"),
-                text
-            },
-        }
-    ]);
+        videoAddOverlay('0', 'ov', text, textConfig),
+    ], 'ov');
     command.outputOption('-shortest')
+    command.outputOption('-map 1:a')
 
     return new Promise((resolve, reject) => {
         command
