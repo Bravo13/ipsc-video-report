@@ -29,7 +29,9 @@
                 },
                 "text": "Пробешка"
             }, {
-                "path":"img_1778.mov"
+                "path":"img_1778.mov",
+                "begin": 3,
+                "end": 8
             },
             "img_1779.mov",
             "img_1780.mov"

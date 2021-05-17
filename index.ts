@@ -85,6 +85,14 @@ for(const video of videos) {
             path: config.get('report.baseDir') + '/' + video['path'],
         };
 
+        if(video['begin']){
+            videoConfig.begin = video['begin'];
+        }
+
+        if(video['end']){
+            videoConfig.end = video['end']
+        }
+
         if(typeof video['subtitle'] == 'object'){
             videoConfig.subtitle = video['subtitle'] as TextOverlayConfig;
             videoConfig.text = video['text'];
@@ -96,6 +104,14 @@ for(const video of videos) {
     }
 
     const command = ffmpeg(videoConfig.path);
+    if(videoConfig.begin){
+        command.seekOutput(videoConfig.begin);
+    }
+
+    if(videoConfig.end){
+        command.setDuration(videoConfig.end-(videoConfig.begin ? videoConfig.begin : 0))
+    }
+
     let output = 'sc'
     let filters:ffmpeg.FilterSpecification[] = [
         {
@@ -124,6 +140,7 @@ for(const video of videos) {
     const pCommand:Promise<string>= new Promise((resolve, reject) => {
         command
             .on('start', (commandString) => {
+                logger.debug(`Starting task ${commandString}`);
                 progressBar.start(100, 0, {file:path.basename(videoConfig.path)});
             })
             .on('error', (e) => reject(e))
@@ -149,6 +166,7 @@ Promise.all(workers).then(async (paths):Promise<string[]> => {
     return new Promise((resolve, reject) => {
         merge
             .on('start', (cli) => {
+                logger.debug(`Merging with command ${cli}`);
                 mergingBar.start(100, 0, {file:"Merging"});
             })
             .on('end', () => {
@@ -166,7 +184,7 @@ Promise.all(workers).then(async (paths):Promise<string[]> => {
 })
 // Removing temporary files
 .then((paths) => {
-    if(!config.has('debug')){
+    if(!logger.isLevelEnabled('debug')){
         removeFiles(paths)
     }
 })

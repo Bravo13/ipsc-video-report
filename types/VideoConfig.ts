@@ -2,10 +2,8 @@ import { TextOverlayConfig } from "./TextOverlayConfig";
 
 export type VideoConfig = {
     path: string,
-    begin?: string,
-    end?: string,
-    beginOffset?: number,
-    endOffset?: number,
+    begin?: number,
+    end?: number,
     subtitle?: TextOverlayConfig,
     text?: string
 }
