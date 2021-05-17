@@ -3,6 +3,8 @@ import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
 import winston, { verbose } from 'winston';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
+import cliProgress from 'cli-progress';
+import path from 'path';
 
 import {Stage} from 'types/Stage';
 import { StageResult } from 'types/StageResult';
@@ -50,6 +52,13 @@ const videoOpt = {
     rate: config.get('report.rate')
 }
 
+let progressBarFormat = cliProgress.Presets.rect;
+progressBarFormat.format = '{file} {percentage}% {frames}';
+let progressBars = new cliProgress.MultiBar({
+    clearOnComplete: false,
+    hideCursor: true
+}, progressBarFormat);
+
 const merge = ffmpeg();
 let workers:any[] = [];
 let videos:[] = config.get('report.video');
@@ -65,7 +74,7 @@ if(config.get('report.type') == 'general'){
     };
     const path = config.get('report.baseDir') + '/' + 'title.mov';
     const duration:number = config.get('report.title.duration');
-    workers.push(videoGenTitle( path, duration, config.get('report.title.text'), opt, videoOpt));
+    workers.push(videoGenTitle( path, duration, config.get('report.title.text'), opt, videoOpt, progressBars));
     merge.input(path);
 }
 
@@ -111,11 +120,20 @@ for(const video of videos) {
     command.complexFilter(filters, output);
     command.addOption('-map 0:a');
 
+    const progressBar = progressBars.create(100, 0);
     const pCommand:Promise<string>= new Promise((resolve, reject) => {
         command
-            .on('start', (commandString) => console.log(`starting ${commandString}`))
+            .on('start', (commandString) => {
+                progressBar.start(100, 0, {file:path.basename(videoConfig.path)});
+            })
             .on('error', (e) => reject(e))
-            .on('end', () => resolve(resultPath))
+            .on('progress', (p) => {
+                progressBar.update(p.percent, {frames:p.frames});
+            })
+            .on('end', () => {
+                progressBar.update(100);
+                resolve(resultPath);
+            })
             .output(resultPath)
             .run()
     })
@@ -126,13 +144,20 @@ for(const video of videos) {
 Promise.all(workers).then(async (paths):Promise<string[]> => {
     const {transitions, outputs} = await prepareTransitionFilters(paths);
     
+    const mergingBar = progressBars.create(100, 0);
     merge.complexFilter(transitions, outputs);
     return new Promise((resolve, reject) => {
         merge
-            .on('start', (cli) => console.log('Start merging '+cli))
+            .on('start', (cli) => {
+                mergingBar.start(100, 0, {file:"Merging"});
+            })
             .on('end', () => {
                 console.log('End merging');
+                mergingBar.update(100);
                 resolve(paths);
+            })
+            .on('progress', (p) => {
+                mergingBar.update(p.percent, {frames:p.frames});
             })
             .on('error', (e) => {throw new Error(e)})
             .output(config.get('report.baseDir') + '/result.mov')
@@ -145,8 +170,14 @@ Promise.all(workers).then(async (paths):Promise<string[]> => {
         removeFiles(paths)
     }
 })
+.then(() => {
+    logger.info("Finished")
+})
 .catch((e) => {
     console.error('ERROR', e);
+})
+.finally(() => {
+    progressBars.stop();
 })
 
 async function removeFiles(paths:string[]){
@@ -225,7 +256,7 @@ function videoAddOverlay(inputs: string | string[], outputs: string | string[], 
         };
 }
 
-function videoGenTitle(path: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any) {
+function videoGenTitle(outPath: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any, progressBarsManager:cliProgress.MultiBar) {
     const command = ffmpeg('color=black:size='+videoConfig.size+':rate='+videoConfig.rate+':duration='+duration)
     command.inputFormat('lavfi');
     command.input('anullsrc=channel_layout=stereo:sample_rate=44100')
@@ -236,12 +267,21 @@ function videoGenTitle(path: string, duration: number, text: string, textConfig:
     command.outputOption('-shortest')
     command.outputOption('-map 1:a')
 
+    const progressBar = progressBarsManager.create(100, 0);
     return new Promise((resolve, reject) => {
         command
-            .output(path)
-            .on('start', (commandString) => console.log(`starting ${commandString}`))
+            .output(outPath)
+            .on('start', (commandString) => {
+                progressBar.start(100, 0, {file:path.basename(outPath)});
+            })
+            .on('progress', (p) => {
+                progressBar.update(p.percent, {frames:p.frames});
+            })
             .on('error', (e) => reject(e))
-            .on('end', () => resolve(path))
+            .on('end', () => {
+                progressBar.update(100);
+                resolve(outPath)
+            })
             .run();
     })
 }

@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/cli-progress": "^3.9.1",
+    "cli-progress": "^3.9.0",
     "config": "^3.3.6",
     "fluent-ffmpeg": "^2.1.2",
     "node-fetch": "^2.6.1",
