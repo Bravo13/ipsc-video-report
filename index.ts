@@ -2,6 +2,7 @@ import config from 'config';
 import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
 import winston, { verbose } from 'winston';
 import fetch from 'node-fetch';
+import fs from 'fs/promises';
 
 import {Stage} from 'types/Stage';
 import { StageResult } from 'types/StageResult';
@@ -122,20 +123,36 @@ for(const video of videos) {
     workers.push(pCommand);
 }
 
-Promise.all(workers).then(async (paths) => {
+Promise.all(workers).then(async (paths):Promise<string[]> => {
     const {transitions, outputs} = await prepareTransitionFilters(paths);
     
     merge.complexFilter(transitions, outputs);
-    merge
-        .on('start', (cli) => console.log('Start merging '+cli))
-        .on('end', () => console.log('End merging'))
-        .output(config.get('report.baseDir') + '/result.mov')
-        .run()
-        //.mergeToFile(config.get('report.baseDir') + '/result.mov', config.get('report.baseDir'))
+    return new Promise((resolve, reject) => {
+        merge
+            .on('start', (cli) => console.log('Start merging '+cli))
+            .on('end', () => {
+                console.log('End merging');
+                resolve(paths);
+            })
+            .on('error', (e) => {throw new Error(e)})
+            .output(config.get('report.baseDir') + '/result.mov')
+            .run()
+    })
+})
+// Removing temporary files
+.then((paths) => {
+    if(!config.has('debug')){
+        removeFiles(paths)
+    }
 })
 .catch((e) => {
     console.error('ERROR', e);
 })
+
+async function removeFiles(paths:string[]){
+    const tasks = paths.map((path) => fs.unlink(path));
+    await Promise.all(tasks);
+}
 
 async function prepareTransitionFilters(paths: string[]) {
     let index = 0;
