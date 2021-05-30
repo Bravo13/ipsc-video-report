@@ -159,7 +159,7 @@ for(const video of videos) {
 }
 
 Promise.all(workers).then(async (paths):Promise<string[]> => {
-    const {transitions, outputs} = await prepareTransitionFilters(paths);
+    const {transitions, outputs} = await prepareTransitionFilters(paths, config.has('report.fade.type') ? config.get('report.fade.type') : undefined);
     
     const mergingBar = progressBars.create(100, 0);
     merge.complexFilter(transitions, outputs);
@@ -203,7 +203,7 @@ async function removeFiles(paths:string[]){
     await Promise.all(tasks);
 }
 
-async function prepareTransitionFilters(paths: string[]) {
+async function prepareTransitionFilters(paths: string[], fadetype?:string) {
     let index = 0;
     let videoTransitions:ffmpeg.FilterSpecification[] = [];
     let audioTransitions:ffmpeg.FilterSpecification[] = [];
@@ -219,7 +219,7 @@ async function prepareTransitionFilters(paths: string[]) {
         videoTransitions.push({
             filter: 'xfade',
             options: {
-                transition:'fade',
+                transition: fadetype ? fadetype : 'fade',
                 duration: config.get('report.fade.duration'),
                 offset: lastXfadeOffset
             },

@@ -14,7 +14,8 @@
         "rate":"60",
         "baseDir":"/mnt/c/Users/godov/video",
         "fade": {
-            "duration": 0.5
+            "duration": 0.5,
+            "type":"fadewhite"
         },
         "video":[
             {
