@@ -20,7 +20,7 @@ const logger = winston.createLogger({
         winston.format.colorize()
     ),
     transports: [
-        new winston.transports.Console()
+        new winston.transports.File({filename:`${config.get('report.baseDir')}/debug.txt`})
     ]
 })
 
@@ -56,7 +56,8 @@ let progressBarFormat = cliProgress.Presets.rect;
 progressBarFormat.format = '{file} {percentage}% {frames}';
 let progressBars = new cliProgress.MultiBar({
     clearOnComplete: false,
-    hideCursor: true
+    hideCursor: true,
+    linewrap: false
 }, progressBarFormat);
 
 const merge = ffmpeg();
