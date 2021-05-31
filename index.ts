@@ -1,6 +1,6 @@
 import config from 'config';
 import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
-import winston, { verbose } from 'winston';
+import winston, { stream, verbose } from 'winston';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import cliProgress from 'cli-progress';
@@ -268,7 +268,7 @@ function videoAddOverlay(inputs: string | string[], outputs: string | string[], 
                 fontcolor: textConfig.font.color,
                 x: getTextPositionValue(textConfig.position, "x"),
                 y: getTextPositionValue(textConfig.position, "y"),
-                text
+                text: encodeTitle(text)
             },
             inputs,
             outputs
@@ -438,4 +438,11 @@ async function fetchResults(url:string){
         overall: matchOverallResult,
         stages: stageList
     }; 
+}
+
+function encodeTitle(title:string):string{
+    title = title.replace(/\%/g, '\\\\\\\\\\%');
+    title = title.replace(/\:/g, '\\\\\\\\\\\\:');
+    console.log(title);
+    return title;
 }
