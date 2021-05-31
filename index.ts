@@ -79,10 +79,12 @@ if(config.get('report.type') == 'general'){
     merge.input(path);
 }
 
+let emptyCounter = 0;
 for(const video of videos) {
     let videoConfig:VideoConfig;
     if(typeof video == 'object'){
         videoConfig = {
+            type: video['type'] ? video['type'] : 'regular',
             path: config.get('report.baseDir') + '/' + video['path'],
         };
 
@@ -100,42 +102,54 @@ for(const video of videos) {
         }
     } else {
         videoConfig = {
+            type: 'regular',
             path: config.get('report.baseDir') + '/' + video
         }
     }
 
-    const command = ffmpeg(videoConfig.path);
-    if(videoConfig.begin){
-        command.seekOutput(videoConfig.begin);
-    }
+    const command = videoConfig.type == 'empty' ? genEmptyVideoCommand(videoOpt, video['duration']) : ffmpeg(videoConfig.path);
 
-    if(videoConfig.end){
-        command.setDuration(videoConfig.end-(videoConfig.begin ? videoConfig.begin : 0))
-    }
-
-    let output = 'sc'
-    let filters:ffmpeg.FilterSpecification[] = [
-        {
-            filter:'scale',
-            options: {
-                w:videoOpt.width,
-                h:videoOpt.height,
-                force_original_aspect_ratio: 'decrease'
-            },
-            inputs: '0:v',
-            outputs: output
+    let resultPath:string = '';
+    if(videoConfig.type == 'regular'){
+        if(videoConfig.begin){
+            command.seekOutput(videoConfig.begin);
         }
-    ]
-    command.fps(videoOpt.rate as number).audioCodec('copy');
-    const resultPath:string = videoConfig.path + '.resized.mov';
-    merge.input(resultPath);
 
-    if(videoConfig.subtitle && videoConfig.text){
-        filters.push(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
-        output = 'ov';
+        if(videoConfig.end){
+            command.setDuration(videoConfig.end-(videoConfig.begin ? videoConfig.begin : 0))
+        }
+
+        let output = 'sc'
+        let filters:ffmpeg.FilterSpecification[] = [
+            {
+                filter:'scale',
+                options: {
+                    w:videoOpt.width,
+                    h:videoOpt.height,
+                    force_original_aspect_ratio: 'decrease'
+                },
+                inputs: '0:v',
+                outputs: output
+            }
+        ]
+        command.fps(videoOpt.rate as number).audioCodec('copy');
+        resultPath = videoConfig.path + '.resized.mov';
+
+        if(videoConfig.subtitle && videoConfig.text){
+            filters.push(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
+            output = 'ov';
+        }
+        command.complexFilter(filters, output);
+        command.addOption('-map 0:a');
     }
-    command.complexFilter(filters, output);
-    command.addOption('-map 0:a');
+
+    if(videoConfig.type == 'empty'){
+        resultPath = config.get('report.baseDir') + `/empty${emptyCounter++}.mov`;
+        if(videoConfig.subtitle && videoConfig.text)
+            command.complexFilter(videoAddOverlay(`0`, 'ov', videoConfig.text, videoConfig.subtitle), 'ov');
+    }
+
+    merge.input(resultPath);
 
     const progressBar = progressBars.create(100, 0);
     const pCommand:Promise<string>= new Promise((resolve, reject) => {
@@ -445,7 +459,7 @@ async function fetchResults(url:string){
     }; 
 }
 
-function encodeTitle(title:string):string{
+function encodeTitle(title:string):string {
     title = title.replace(/\\/g, '\\\\\\\\');
     title = title.replace(/\%/g, '\\\\%');
     title = title.replace(/\:/g, '\\:');
