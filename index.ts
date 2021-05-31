@@ -276,15 +276,10 @@ function videoAddOverlay(inputs: string | string[], outputs: string | string[], 
 }
 
 function videoGenTitle(outPath: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any, progressBarsManager:cliProgress.MultiBar) {
-    const command = ffmpeg('color=black:size='+videoConfig.size+':rate='+videoConfig.rate+':duration='+duration)
-    command.inputFormat('lavfi');
-    command.input('anullsrc=channel_layout=stereo:sample_rate=44100')
-    command.inputFormat('lavfi');
+    const command = genEmptyVideoCommand(videoConfig, duration);
     command.complexFilter([
         videoAddOverlay('0', 'ov', text, textConfig),
     ], 'ov');
-    command.outputOption('-shortest')
-    command.outputOption('-map 1:a')
 
     const progressBar = progressBarsManager.create(100, 0);
     return new Promise((resolve, reject) => {
@@ -303,6 +298,16 @@ function videoGenTitle(outPath: string, duration: number, text: string, textConf
             })
             .run();
     })
+}
+
+function genEmptyVideoCommand(videoConfig:any, duration:number):FfmpegCommand {
+    const command = ffmpeg('color=black:size='+videoConfig.size+':rate='+videoConfig.rate+':duration='+duration)
+    command.inputFormat('lavfi');
+    command.input('anullsrc=channel_layout=stereo:sample_rate=44100')
+    command.inputFormat('lavfi');
+    command.outputOption('-shortest')
+    command.outputOption('-map 1:a')
+    return command;
 }
 
 async function fetchResults(url:string){
