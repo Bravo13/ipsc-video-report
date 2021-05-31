@@ -441,7 +441,9 @@ async function fetchResults(url:string){
 }
 
 function encodeTitle(title:string):string{
-    title = title.replace(/\%/g, '\\\\\\\\\\%');
-    title = title.replace(/\:/g, '\\\\\\\\\\\\:');
+    title = title.replace(/\%/g, '\\\\%');
+    title = title.replace(/\:/g, '\\:');
+    title = title.replace(/\'/g, "'\\\\\\''");
+    title = `'${title}'`;
     return title;
 }
