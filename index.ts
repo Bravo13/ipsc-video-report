@@ -442,7 +442,7 @@ async function fetchResults(url:string){
     });
 
     matchDef.match_stages.forEach((stageData:any) => {
-        if(!stageResults[stageData.stage_uuid]){
+        if(!stageResults[stageData.stage_uuid] && !stageData.stage_deleted){
             throw new Error(`Unable to find stage results for stage with uuid ${stageData.stage_uuid}`);
         }
         let stage:Stage = {
