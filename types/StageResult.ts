@@ -1,4 +1,33 @@
 import {Person} from 'types/Person';
+import { NonRelativeModuleNameResolutionCache } from 'typescript';
+
+type NumOrNull = number | null;
+
+export type ScorePenalties = {
+    noShoots: NumOrNull,
+    misses: NumOrNull,
+    noPenaltieMisses: NumOrNull
+}
+
+export type ScorePaper = {
+    alphas: NumOrNull,
+    bravos: NumOrNull,
+    charlies: NumOrNull,
+    deltas: NumOrNull
+} & ScorePenalties
+
+export type ScoreSteel = {
+    hits: NumOrNull
+} & ScorePenalties
+
+export type Score = {
+    paper?: ScorePaper,
+    steel?: ScoreSteel,
+    penalties: ScorePenalties | undefined,
+    procedures?: NumOrNull,
+    additionalPenalties?: NumOrNull
+}
+
 export type StageResult = {
     person: Person,
     time: number,
@@ -10,6 +39,6 @@ export type StageResult = {
     overallPlace?: number,
     divisionRate?: number,
     overallRate?: number,
-    penalties: number,
-    dq?: boolean
+    dq?: boolean,
+    score?: Score
 };

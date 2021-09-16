@@ -5,14 +5,16 @@ import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import cliProgress from 'cli-progress';
 import path from 'path';
+import dot from 'dot';
 
 import {Stage} from 'types/Stage';
-import { StageResult } from 'types/StageResult';
+import { StageResult, Score, ScorePaper, ScoreSteel, ScorePenalties } from 'types/StageResult';
 import { Person } from 'types/Person';
 import { MatchResult } from 'types/MatchResult';
 import { getTextPositionValue, TextOverlayConfig } from 'types/TextOverlayConfig';
 import { VideoConfig } from 'types/VideoConfig';
 import { parseCommandLine } from 'typescript';
+import { calcScore } from 'libs/paperScoreMagic';
 
 const logger = winston.createLogger({
     level: config.get("logger.level"),
@@ -424,6 +426,9 @@ async function fetchResults(url:string){
             throw new Error("Unable to find key for results");
         }
 
+        const stageScore = matchScore.match_scores.find((sc: any) => sc.stage_uuid == result.stageUUID);
+        const stageShooterScore = stageScore.stage_stagescores.find((sc: any) => sc.shtr == person.id);
+
         result[stageResultKey].forEach((divisionResult:any) => {
             if(!divisionResult[person.division]) return;
             divisionResult[person.division].forEach((personResult:any) => {
@@ -435,7 +440,8 @@ async function fetchResults(url:string){
                     stagePoints: personResult.stagePoints,
                     stagePercent: personResult.stagePercent,
                     time: personResult.stageTimeSecs,
-                    penalties: personResult.penalties
+                    divisionPlace: personResult.place,
+                    score: buildStageScore(stageShooterScore),
                 }
             });
         })
@@ -460,11 +466,56 @@ async function fetchResults(url:string){
     }; 
 }
 
-function stageResultToOutput(stageResult: Stage) {
-    return {
-        title: stageResult.title,
-        ...stageResult.result
+function buildStageScore(stageScore: any): Score {
+    let paperScore;
+    if(stageScore["ts"] && stageScore["ts"].length){
+        paperScore = calcScore(stageScore["ts"]);
     }
+
+    let steelScore: ScoreSteel = {
+        hits: stageScore.poph,
+        misses: stageScore.popm,
+        noPenaltieMisses: stageScore.popnpm,
+        noShoots: stageScore.popns
+    }
+
+    let penalties;
+    if(
+        (
+            paperScore
+            && (
+                paperScore.misses
+                || paperScore.noPenaltieMisses
+                || paperScore.noShoots
+            )
+        ) || (
+            steelScore.misses
+            || steelScore.noPenaltieMisses
+            || steelScore.noShoots
+        )
+    ) {
+        penalties = {
+            misses: (paperScore && paperScore.misses ? paperScore.misses : 0) + (steelScore.misses ? steelScore.misses : 0),
+            noPenaltieMisses: (paperScore && paperScore.noPenaltieMisses) ? paperScore.noPenaltieMisses : 0 + (steelScore.noPenaltieMisses ? steelScore.noPenaltieMisses : 0),
+            noShoots: (paperScore && paperScore.noShoots) ? paperScore.noShoots : 0 + (steelScore.noShoots ? steelScore.noShoots : 0)
+        } as ScorePenalties;
+    }
+
+    let score:Score = {
+        paper: paperScore,
+        steel: steelScore,
+        additionalPenalties: stageScore.apen,
+        procedures: stageScore.proc,
+        penalties
+    }
+    return score;
+}
+
+
+function stageResultToOutput(stageResult: Stage, template: string) {
+    dot.templateSettings.strip = false;
+    const tmpl = dot.template(template);
+    return tmpl(stageResult);
 }
 
 function encodeTitle(title:string):string {
