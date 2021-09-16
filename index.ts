@@ -12,6 +12,7 @@ import { Person } from 'types/Person';
 import { MatchResult } from 'types/MatchResult';
 import { getTextPositionValue, TextOverlayConfig } from 'types/TextOverlayConfig';
 import { VideoConfig } from 'types/VideoConfig';
+import { parseCommandLine } from 'typescript';
 
 const logger = winston.createLogger({
     level: config.get("logger.level"),
@@ -37,14 +38,6 @@ fetchResults(config.get("report.results"))
     .catch((e) => logger.error(e));
 */
 
-
-function buildVideo(videoList: string[]) {
-    logger.info("Building videorenderer");
-    return async function(results: {overall: MatchResult, division: MatchResult, stages: Stage[]}) {
-        logger.info("Preparing video");
-    }    
-}
-
 const videoOpt = {
     size: `${config.get('report.size.w')}x${config.get('report.size.h')}`,
     width: config.get('report.size.w'),
@@ -60,121 +53,122 @@ let progressBars = new cliProgress.MultiBar({
     linewrap: false
 }, progressBarFormat);
 
-const merge = ffmpeg();
-let workers:any[] = [];
+let pathsToMerge:any[] = [];
 let videos:[] = config.get('report.video');
 
-if(config.get('report.type') == 'general'){
-    const opt:TextOverlayConfig = {
-        font: {
-            color: config.get('report.title.color'),
-            name: config.get('report.title.font'),
-            size: config.get('report.title.size'),
-        },
-        position: config.get('report.title.position')
-    };
-    const path = config.get('report.baseDir') + '/' + 'title.mov';
-    const duration:number = config.get('report.title.duration');
-    workers.push(videoGenTitle( path, duration, config.get('report.title.text'), opt, videoOpt, progressBars));
-    merge.input(path);
-}
-
 let emptyCounter = 0;
-for(const video of videos) {
-    let videoConfig:VideoConfig;
-    if(typeof video == 'object'){
-        videoConfig = {
-            type: video['type'] ? video['type'] : 'regular',
-            path: config.get('report.baseDir') + '/' + video['path'],
+(async () => {
+    if(config.get('report.type') == 'general'){
+        const opt:TextOverlayConfig = {
+            font: {
+                color: config.get('report.title.color'),
+                name: config.get('report.title.font'),
+                size: config.get('report.title.size'),
+            },
+            position: config.get('report.title.position')
         };
-
-        if(video['begin']){
-            videoConfig.begin = video['begin'];
-        }
-
-        if(video['end']){
-            videoConfig.end = video['end']
-        }
-
-        if(typeof video['subtitle'] == 'object'){
-            videoConfig.subtitle = video['subtitle'] as TextOverlayConfig;
-            videoConfig.text = video['text'];
-        }
-    } else {
-        videoConfig = {
-            type: 'regular',
-            path: config.get('report.baseDir') + '/' + video
-        }
+        const path = config.get('report.baseDir') + '/' + 'title.mov';
+        const duration:number = config.get('report.title.duration');
+        await videoGenTitle( path, duration, config.get('report.title.text'), opt, videoOpt, progressBars);
+        pathsToMerge.push(path);
     }
 
-    const command = videoConfig.type == 'empty' ? genEmptyVideoCommand(videoOpt, video['duration']) : ffmpeg(videoConfig.path);
+    for(const video of videos) {
+        let videoConfig:VideoConfig;
+        if(typeof video == 'object'){
+            videoConfig = {
+                type: video['type'] ? video['type'] : 'regular',
+                path: config.get('report.baseDir') + '/' + video['path'],
+            };
 
-    let resultPath:string = '';
-    if(videoConfig.type == 'regular'){
-        if(videoConfig.begin){
-            command.seekOutput(videoConfig.begin);
-        }
-
-        if(videoConfig.end){
-            command.setDuration(videoConfig.end-(videoConfig.begin ? videoConfig.begin : 0))
-        }
-
-        let output = 'sc'
-        let filters:ffmpeg.FilterSpecification[] = [
-            {
-                filter:'scale',
-                options: {
-                    w:videoOpt.width,
-                    h:videoOpt.height,
-                    force_original_aspect_ratio: 'decrease'
-                },
-                inputs: '0:v',
-                outputs: output
+            if(video['begin']){
+                videoConfig.begin = video['begin'];
             }
-        ]
-        command.fps(videoOpt.rate as number).audioCodec('copy');
-        resultPath = videoConfig.path + '.resized.mov';
 
-        if(videoConfig.subtitle && videoConfig.text){
-            filters.push(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
-            output = 'ov';
+            if(video['end']){
+                videoConfig.end = video['end']
+            }
+
+            if(typeof video['subtitle'] == 'object'){
+                videoConfig.subtitle = video['subtitle'] as TextOverlayConfig;
+                videoConfig.text = video['text'];
+            }
+        } else {
+            videoConfig = {
+                type: 'regular',
+                path: config.get('report.baseDir') + '/' + video
+            }
         }
-        command.complexFilter(filters, output);
-        command.addOption('-map 0:a');
+
+        const command = videoConfig.type == 'empty' ? genEmptyVideoCommand(videoOpt, video['duration']) : ffmpeg(videoConfig.path);
+
+        let resultPath:string = '';
+        if(videoConfig.type == 'regular'){
+            if(videoConfig.begin){
+                command.seekOutput(videoConfig.begin);
+            }
+
+            if(videoConfig.end){
+                command.setDuration(videoConfig.end-(videoConfig.begin ? videoConfig.begin : 0))
+            }
+
+            let output = 'sc'
+            let filters:ffmpeg.FilterSpecification[] = [
+                {
+                    filter:'scale',
+                    options: {
+                        w:videoOpt.width,
+                        h:videoOpt.height,
+                        force_original_aspect_ratio: 'decrease'
+                    },
+                    inputs: '0:v',
+                    outputs: output
+                }
+            ]
+            command.fps(videoOpt.rate as number).audioCodec('copy');
+            resultPath = videoConfig.path + '.resized.mov';
+
+            if(videoConfig.subtitle && videoConfig.text){
+                filters.push(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
+                output = 'ov';
+            }
+            command.complexFilter(filters, output);
+            command.addOption('-map 0:a');
+        }
+
+        if(videoConfig.type == 'empty'){
+            resultPath = config.get('report.baseDir') + `/empty${emptyCounter++}.mov`;
+            if(videoConfig.subtitle && videoConfig.text)
+                command.complexFilter(videoAddOverlay(`0`, 'ov', videoConfig.text, videoConfig.subtitle), 'ov');
+        }
+
+        const finalPath = await execFFmpegCommand(command, videoConfig, resultPath);
+
+        pathsToMerge.push(finalPath);
     }
 
-    if(videoConfig.type == 'empty'){
-        resultPath = config.get('report.baseDir') + `/empty${emptyCounter++}.mov`;
-        if(videoConfig.subtitle && videoConfig.text)
-            command.complexFilter(videoAddOverlay(`0`, 'ov', videoConfig.text, videoConfig.subtitle), 'ov');
-    }
-
-    merge.input(resultPath);
-
-    const progressBar = progressBars.create(100, 0);
-    const pCommand:Promise<string>= new Promise((resolve, reject) => {
-        command
-            .on('start', (commandString) => {
-                logger.debug(`Starting task ${commandString}`);
-                progressBar.start(100, 0, {file:path.basename(videoConfig.path)});
-            })
-            .on('error', (e) => reject(e))
-            .on('progress', (p) => {
-                progressBar.update(p.percent, {frames:p.frames});
-            })
-            .on('end', () => {
-                progressBar.update(100);
-                resolve(resultPath);
-            })
-            .output(resultPath)
-            .run()
+    await mergeVideosFromPaths(pathsToMerge)
+    // Removing temporary files
+    .then((paths) => {
+        if(!logger.isLevelEnabled('debug')){
+            removeFiles(paths)
+        }
     })
+    .then(() => {
+        logger.info("Finished")
+    })
+    .catch((e) => {
+        console.error('ERROR', e);
+    })
+    .finally(() => {
+        progressBars.stop();
+    })
+})()
 
-    workers.push(pCommand);
-}
-
-Promise.all(workers).then(async (paths):Promise<string[]> => {
+async function mergeVideosFromPaths(paths: string[]):Promise<string[]> {
+    const merge = ffmpeg();
     const {transitions, outputs} = await prepareTransitionFilters(paths, config.has('report.fade.type') ? config.get('report.fade.type') : undefined);
+    paths.forEach((path) => merge.input(path));
     
     const mergingBar = progressBars.create(100, 0);
     merge.complexFilter(transitions, outputs);
@@ -192,26 +186,33 @@ Promise.all(workers).then(async (paths):Promise<string[]> => {
             .on('progress', (p) => {
                 mergingBar.update(p.percent, {frames:p.frames});
             })
-            .on('error', (e) => {throw new Error(e)})
+            .on('error', (e) => reject(e))
             .output(config.get('report.baseDir') + '/result.mov')
             .run()
     })
-})
-// Removing temporary files
-.then((paths) => {
-    if(!logger.isLevelEnabled('debug')){
-        removeFiles(paths)
-    }
-})
-.then(() => {
-    logger.info("Finished")
-})
-.catch((e) => {
-    console.error('ERROR', e);
-})
-.finally(() => {
-    progressBars.stop();
-})
+
+}
+
+async function execFFmpegCommand(command: FfmpegCommand, videoConfig: VideoConfig, resultPath: string):Promise<string> {
+    const progressBar = progressBars.create(100, 0);
+    return new Promise((resolve, reject) => {
+        command
+            .on('start', (commandString) => {
+                logger.debug(`Starting task ${commandString}`);
+                progressBar.start(100, 0, {file:path.basename(resultPath)});
+            })
+            .on('error', (e) => reject(e))
+            .on('progress', (p) => {
+                progressBar.update(p.percent, {frames:p.frames});
+            })
+            .on('end', () => {
+                progressBar.update(100);
+                resolve(resultPath);
+            })
+            .output(resultPath)
+            .run()
+    })
+}
 
 async function removeFiles(paths:string[]){
     const tasks = paths.map((path) => fs.unlink(path));
