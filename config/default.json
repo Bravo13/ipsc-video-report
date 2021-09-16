@@ -20,6 +20,14 @@
         "results": "https://practiscore.com/results/new/92af90a7-9bf6-48f8-915c-ff11af882858?q_individual=fe6e9094-5f51-497c-b9ec-cbeaf6665fd5",
 "_c":"%(title)s\nPlace %(divisionPlace)s\nTime: %(time)s\nPoints: %(stagePoints)s/%(points)s\nHF: %(hitFactor)s",
         "results-template": "{{=it.title}}\nPlace: {{=it.result.divisionPlace}}\nTime: {{=it.result.time}}\nPoints: {{=it.result.stagePoints}}/{{=it.result.points}}\nHF: {{=it.result.hitFactor}}{{? it.result.score.paper}}\nA:{{=it.result.score.paper.alphas}} C:{{=it.result.score.paper.charlies}} D:{{=it.result.score.paper.deltas}}{{?}}{{?it.result.score.penalties}}\nNPM:{{=it.result.score.penalties.noPenaltieMisses}} NS:{{=it.result.score.penalties.noShoots}} M:{{=it.result.score.penalties.misses}}{{?}}",
+        "defaultSubtitleConfig": {
+            "font":{
+                "name":"Arial",
+                "size":15,
+                "color":"0xffffff"
+            },
+            "position":"leftBottom"
+        },
         "video":[
             {
                 "type":"empty",
