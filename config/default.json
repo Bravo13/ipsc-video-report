@@ -17,8 +17,35 @@
             "duration": 0.5,
             "type":"fadewhite"
         },
+        "results": "https://practiscore.com/results/new/92af90a7-9bf6-48f8-915c-ff11af882858?q_individual=fe6e9094-5f51-497c-b9ec-cbeaf6665fd5",
+"_c":"%(title)s\nPlace %(divisionPlace)s\nTime: %(time)s\nPoints: %(stagePoints)s/%(points)s\nHF: %(hitFactor)s",
+        "results-template": "{{=it.title}}\nPlace: {{=it.result.divisionPlace}}\nTime: {{=it.result.time}}\nPoints: {{=it.result.stagePoints}}/{{=it.result.points}}\nHF: {{=it.result.hitFactor}}{{? it.result.score.paper}}\nA:{{=it.result.score.paper.alphas}} C:{{=it.result.score.paper.charlies}} D:{{=it.result.score.paper.deltas}}{{?}}{{?it.result.score.penalties}}\nNPM:{{=it.result.score.penalties.noPenaltieMisses}} NS:{{=it.result.score.penalties.noShoots}} M:{{=it.result.score.penalties.misses}}{{?}}",
         "video":[
             {
+                "type":"empty",
+                "duration":5,
+                "subtitle":{
+                    "font":{
+                        "name":"Arial",
+                        "size":15,
+                        "color":"0xffffff"
+                    },
+                    "position":"center"
+                },
+                "text": "Пропущено"
+            }, {
+                "type":"empty",
+                "duration":5,
+                "subtitle":{
+                    "font":{
+                        "name":"Arial",
+                        "size":15,
+                        "color":"0xffffff"
+                    },
+                    "position":"center"
+                },
+                "text": "Пропущено 222"
+            }, {
                 "path":"img_1777.mov",
                 "subtitle":{
                     "font":{
@@ -39,12 +66,12 @@
         ],
         "title": {
             "font":"Arial",
-            "size":64,
-            "duration":3,
+            "size":34,
+            "duration":1,
             "color":"0xffffff",
             "background":"0x000000",
             "position":"center",
-            "text": "Тренировка"
+            "text": "%Трениро()$&^#\\@[]:;'123%'"
         },
         "outpupt":"/tmp/result.mov"
     }
