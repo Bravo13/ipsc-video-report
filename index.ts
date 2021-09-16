@@ -60,6 +60,15 @@ let videos:[] = config.get('report.video');
 
 let emptyCounter = 0;
 (async () => {
+
+    let matchResultTexts: string[] = [];
+    if(config.get('report.results')){
+        const matchResults = await fetchResults(config.get('report.results'));
+        for(let result of matchResults.stages)
+            matchResultTexts.push(stageResultToOutput(result, config.get('report.results-template')));
+            
+    }
+
     if(config.get('report.type') == 'general'){
         const opt:TextOverlayConfig = {
             font: {
@@ -75,6 +84,7 @@ let emptyCounter = 0;
         pathsToMerge.push(path);
     }
 
+    let index = 0;
     for(const video of videos) {
         let videoConfig:VideoConfig;
         if(typeof video == 'object'){
@@ -91,14 +101,28 @@ let emptyCounter = 0;
                 videoConfig.end = video['end']
             }
 
-            if(typeof video['subtitle'] == 'object'){
-                videoConfig.subtitle = video['subtitle'] as TextOverlayConfig;
-                videoConfig.text = video['text'];
+            if(
+                (typeof video['subtitle'] == 'object')
+                || (
+                    config.get('report.defaultSubtitleConfig')
+                    && matchResultTexts[index]
+                )
+            ){
+                videoConfig.subtitle = (video['subtitle'] ? video['subtitle'] : config.get('report.defaultSubtitleConfig')) as TextOverlayConfig;
+                videoConfig.text = matchResultTexts[index] ? matchResultTexts[index] : video['text'];
             }
         } else {
             videoConfig = {
                 type: 'regular',
                 path: config.get('report.baseDir') + '/' + video
+            }
+
+            if(
+                config.get('report.defaultSubtitleConfig')
+                && matchResultTexts[index]
+            ) {
+                videoConfig.subtitle = config.get('report.defaultSubtitleConfig') as TextOverlayConfig;
+                videoConfig.text = matchResultTexts[index];
             }
         }
 
@@ -147,6 +171,7 @@ let emptyCounter = 0;
         const finalPath = await execFFmpegCommand(command, videoConfig, resultPath);
 
         pathsToMerge.push(finalPath);
+        index++;
     }
 
     await mergeVideosFromPaths(pathsToMerge)
