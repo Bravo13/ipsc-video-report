@@ -460,6 +460,13 @@ async function fetchResults(url:string){
     }; 
 }
 
+function stageResultToOutput(stageResult: Stage) {
+    return {
+        title: stageResult.title,
+        ...stageResult.result
+    }
+}
+
 function encodeTitle(title:string):string {
     title = title.replace(/\\/g, '\\\\\\\\');
     title = title.replace(/\%/g, '\\\\%');
