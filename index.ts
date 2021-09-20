@@ -62,11 +62,13 @@ let emptyCounter = 0;
 (async () => {
 
     let matchResultTexts: string[] = [];
-    if(config.get('report.results')){
+    let videoTitle:string = config.has('report.title.text') ? config.get('report.title.text') : '';
+    if(config.has('report.results')){
         const matchResults = await fetchResults(config.get('report.results'));
         for(let result of matchResults.stages)
             matchResultTexts.push(stageResultToOutput(result, config.get('report.results-template')));
-            
+
+        videoTitle = renderTitle(matchResults, config.get('report.title-template'));
     }
 
     if(config.get('report.type') == 'general'){
@@ -80,7 +82,7 @@ let emptyCounter = 0;
         };
         const path = config.get('report.baseDir') + '/' + 'title.mov';
         const duration:number = config.get('report.title.duration');
-        await videoGenTitle( path, duration, config.get('report.title.text'), opt, videoOpt, progressBars);
+        await videoGenTitle( path, duration, videoTitle, opt, videoOpt, progressBars).catch(errorHandler);
         pathsToMerge.push(path);
     }
 
@@ -155,7 +157,7 @@ let emptyCounter = 0;
             resultPath = videoConfig.path + '.resized.mov';
 
             if(videoConfig.subtitle && videoConfig.text){
-                filters.push(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
+                filters = filters.concat(videoAddOverlay(`${output}`, 'ov', videoConfig.text, videoConfig.subtitle));
                 output = 'ov';
             }
             command.complexFilter(filters, output);
@@ -303,25 +305,43 @@ async function getVideoMeta(path: string):Promise<ffmpeg.FfprobeFormat> {
 }
 
 function videoAddOverlay(inputs: string | string[], outputs: string | string[], text:string, textConfig: TextOverlayConfig) {
-    return {
+    const lines = text.split('\n');
+    let commands:FilterSpecification[] = [];
+    let tOutput = 'tout0';
+    lines.forEach( (line, index) => {
+        const x = getTextPositionValue(textConfig.position, "x", index, lines.length, textConfig.font.size);
+        const y = getTextPositionValue(textConfig.position, "y", index, lines.length, textConfig.font.size);
+
+        const command:FilterSpecification = {
             filter: 'drawtext',
             options: {
                 fontsize: textConfig.font.size,
                 fontcolor: textConfig.font.color,
-                x: getTextPositionValue(textConfig.position, "x"),
-                y: getTextPositionValue(textConfig.position, "y"),
-                text: encodeTitle(text)
+                x,
+                y,
+                text: encodeTitle(line),
             },
-            inputs,
-            outputs
         };
+        if(index == 0)
+            command.inputs = inputs;
+        else
+            command.inputs = tOutput;
+        
+        if(index == lines.length-1)
+            command.outputs = outputs;
+        else {
+            tOutput = 'tout'+index;
+            command.outputs = tOutput;
+        }
+
+        commands.push(command);
+    });
+    return commands;
 }
 
 function videoGenTitle(outPath: string, duration: number, text: string, textConfig: TextOverlayConfig, videoConfig: any, progressBarsManager:cliProgress.MultiBar) {
     const command = genEmptyVideoCommand(videoConfig, duration);
-    command.complexFilter([
-        videoAddOverlay('0', 'ov', text, textConfig),
-    ], 'ov');
+    command.complexFilter( videoAddOverlay('0', 'ov', text, textConfig), 'ov');
 
     const progressBar = progressBarsManager.create(100, 0);
     return new Promise((resolve, reject) => {

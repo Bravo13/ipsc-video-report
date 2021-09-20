@@ -44,6 +44,33 @@ const TextPositionToXY = {
     }
 };
 
-export function getTextPositionValue(position: TextPosition, coordName:("x"|"y")){
-    return TextPositionToXY[position][coordName];
+export function getTextPositionValue(position: TextPosition, coordName:("x"|"y"), currentLine: number, linesTotal: number, fontSize: number){
+    const basePositin = TextPositionToXY[position][coordName];
+    let calculatedPosition;
+    if(position == TextPosition.center && coordName == "y") {
+        calculatedPosition = basePositin + "-max_glyph_a*"+linesTotal+"/2+max_glyph_a*"+currentLine+"+"+fontSize*.1*currentLine;
+
+    } else if(
+        coordName == "y"
+        && (
+            position == TextPosition.leftBottom
+            || position == TextPosition.middleBottom
+        )
+    ){
+        calculatedPosition = basePositin + "-max_glyph_a*"+linesTotal+"+max_glyph_a*"+currentLine+"+"+fontSize*.1*currentLine;
+
+    } else if(
+        coordName == "y"
+        && (
+            position == TextPosition.leftTop
+            || position == TextPosition.middleTop
+        )
+    ){
+        calculatedPosition = basePositin + "+max_glyph_a*"+linesTotal+"+max_glyph_a*"+currentLine+"+"+fontSize*.1*currentLine;
+
+    } else {
+        calculatedPosition = basePositin;
+    }
+
+    return calculatedPosition;
 };
