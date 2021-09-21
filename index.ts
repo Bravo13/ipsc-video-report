@@ -241,8 +241,9 @@ async function execFFmpegCommand(command: FfmpegCommand, videoConfig: VideoConfi
     const progressBar = progressBars.create(100, 0);
     return new Promise((resolve, reject) => {
         command
-            .on('start', (commandString) => {
-                logger.debug(`Starting task ${commandString}`);
+            .on('start', (cli) => {
+                const pathPrefix = config.has("ffmpeg.path") ? path.dirname(config.get('ffmpeg.path'))+'/' : '';
+                logger.debug(`Starting task ${pathPrefix}${cli}`);
                 progressBar.start(100, 0, {file:path.basename(resultPath)});
             })
             .on('error', (e) => reject(e))
