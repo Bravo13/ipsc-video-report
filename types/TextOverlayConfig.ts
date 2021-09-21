@@ -48,7 +48,7 @@ export function getTextPositionValue(position: TextPosition, coordName:("x"|"y")
     const basePositin = TextPositionToXY[position][coordName];
     let calculatedPosition;
     if(position == TextPosition.center && coordName == "y") {
-        calculatedPosition = basePositin + "-max_glyph_a*"+linesTotal+"/2+max_glyph_a*"+currentLine+"+"+fontSize*.1*currentLine;
+        calculatedPosition = basePositin + "-" + fontSize + "*"+linesTotal+"/2+" + fontSize + "*"+currentLine;
 
     } else if(
         coordName == "y"
@@ -57,7 +57,7 @@ export function getTextPositionValue(position: TextPosition, coordName:("x"|"y")
             || position == TextPosition.middleBottom
         )
     ){
-        calculatedPosition = basePositin + "-max_glyph_a*"+linesTotal+"+max_glyph_a*"+currentLine+"+"+fontSize*.1*currentLine;
+        calculatedPosition = basePositin + "-" + fontSize + "*" + linesTotal + "+" + fontSize + "*" + currentLine;
 
     } else if(
         coordName == "y"
@@ -66,7 +66,7 @@ export function getTextPositionValue(position: TextPosition, coordName:("x"|"y")
             || position == TextPosition.middleTop
         )
     ){
-        calculatedPosition = basePositin + "+max_glyph_a*"+linesTotal+"+max_glyph_a*"+currentLine+"+"+fontSize*.1*currentLine;
+        calculatedPosition = basePositin + "+" + fontSize + "*" + linesTotal + "+" + fontSize + "*" + currentLine;
 
     } else {
         calculatedPosition = basePositin;
