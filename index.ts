@@ -1,6 +1,6 @@
 import config from 'config';
-import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg';
-import winston, { stream, verbose } from 'winston';
+import ffmpeg, { FfmpegCommand, FilterSpecification } from 'fluent-ffmpeg';
+import winston, { exitOnError, stream, verbose } from 'winston';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import cliProgress from 'cli-progress';
@@ -20,10 +20,12 @@ const logger = winston.createLogger({
     level: config.get("logger.level"),
     format: winston.format.combine(
         winston.format.simple(),
-        winston.format.colorize()
+        winston.format.colorize(),
+        winston.format.errors({stack: true})
     ),
     transports: [
-        new winston.transports.File({filename:`${config.get('report.baseDir')}/debug.txt`})
+        new winston.transports.File({filename:`${config.get('report.baseDir')}/debug.txt`}),
+        new winston.transports.Console()
     ]
 })
 
@@ -193,6 +195,11 @@ let emptyCounter = 0;
         progressBars.stop();
     })
 })()
+
+function errorHandler(ex: any){
+    console.error(ex);
+    process.exit();
+}
 
 async function mergeVideosFromPaths(paths: string[]):Promise<string[]> {
     const merge = ffmpeg();
