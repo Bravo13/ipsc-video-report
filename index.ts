@@ -327,6 +327,7 @@ function videoAddOverlay(inputs: string | string[], outputs: string | string[], 
                 x,
                 y,
                 text: encodeTitle(line),
+                expansion: "normal"
             },
         };
         if(index == 0)
@@ -418,7 +419,6 @@ async function fetchResults(url:string){
             id: personId
         }
     }
-
 
     if(!matchDef.match_stages) {
         throw Error("No stages data in matchDef.json");
@@ -514,7 +514,9 @@ async function fetchResults(url:string){
     return {
         division: matchDivisionResult,
         overall: matchOverallResult,
-        stages: stageList
+        stages: stageList,
+        title: matchDef.match_name,
+        date: matchDef.match_date
     }; 
 }
 
