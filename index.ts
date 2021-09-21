@@ -211,7 +211,8 @@ async function mergeVideosFromPaths(paths: string[]):Promise<string[]> {
     return new Promise((resolve, reject) => {
         merge
             .on('start', (cli) => {
-                logger.debug(`Merging with command ${cli}`);
+                const pathPrefix = config.has("ffmpeg.path") ? path.dirname(config.get('ffmpeg.path'))+'/' : '';
+                logger.debug(`Merging with command ${pathPrefix}${cli}`);
                 mergingBar.start(100, 0, {file:"Merging"});
             })
             .on('end', () => {
