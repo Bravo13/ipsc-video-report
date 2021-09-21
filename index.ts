@@ -556,6 +556,11 @@ function buildStageScore(stageScore: any): Score {
     return score;
 }
 
+function renderTitle(results: any, template: string): string{
+    dot.templateSettings.strip = false;
+    const tmpl = dot.template(template);
+    return tmpl(results);
+}
 
 function stageResultToOutput(stageResult: Stage, template: string) {
     dot.templateSettings.strip = false;
