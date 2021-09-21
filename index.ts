@@ -237,7 +237,7 @@ async function mergeVideosFromPaths(paths: string[]):Promise<string[]> {
 
 }
 
-async function execFFmpegCommand(command: FfmpegCommand, videoConfig: VideoConfig, resultPath: string):Promise<string> {
+async function execFFmpegCommand(command: FfmpegCommand, resultPath: string):Promise<string> {
     const progressBar = progressBars.create(100, 0);
     return new Promise((resolve, reject) => {
         command
