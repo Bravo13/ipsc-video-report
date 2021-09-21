@@ -203,11 +203,18 @@ function errorHandler(ex: any){
 
 async function mergeVideosFromPaths(paths: string[]):Promise<string[]> {
     const merge = ffmpeg();
-    const {transitions, outputs} = await prepareTransitionFilters(paths, config.has('report.fade.type') ? config.get('report.fade.type') : undefined);
-    paths.forEach((path) => merge.input(path));
+    let concatInputs = '';
+    paths.forEach((path, index) => {
+        concatInputs += `[${index}:v:0][${index}:a:0]`;
+        merge.input(path);
+    });
+
+    const outIndex = paths.length;
+
+    concatInputs += `concat=n=${outIndex}:v=1:a=1[v${outIndex}][a${outIndex}]`;
     
     const mergingBar = progressBars.create(100, 0);
-    merge.complexFilter(transitions, outputs);
+    merge.complexFilter(concatInputs, [`v${outIndex}`, `a${outIndex}`]);
     return new Promise((resolve, reject) => {
         merge
             .on('start', (cli) => {
