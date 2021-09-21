@@ -573,6 +573,9 @@ function encodeTitle(title:string):string {
     title = title.replace(/\%/g, '\\\\%');
     title = title.replace(/\:/g, '\\:');
     title = title.replace(/\'/g, "'\\\\\\''");
-    title = `'${title}'`;
+
+    // fluent-ffmpeg wraps lines if it contains comma
+    if(!title.match(/[,]/))
+        title = `'${title}'`;
     return title;
 }
