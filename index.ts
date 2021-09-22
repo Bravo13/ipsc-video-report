@@ -85,7 +85,10 @@ let emptyCounter = 0;
         const path = config.get('report.baseDir') + '/' + 'title.mov';
         const duration:number = config.get('report.title.duration');
         await videoGenTitle( path, duration, videoTitle, opt, videoOpt, progressBars).catch(errorHandler);
-        pathsToMerge.push(path);
+        const pathWithFadeOut = path + '.fadeOut.mov';
+        const titleFadeOutCommand = await applyFadeOutFilter(path);
+        await execFFmpegCommand(titleFadeOutCommand, pathWithFadeOut);
+        pathsToMerge.push(pathWithFadeOut);
     }
 
     let index = 0;
@@ -172,9 +175,21 @@ let emptyCounter = 0;
                 command.complexFilter(videoAddOverlay(`0`, 'ov', videoConfig.text, videoConfig.subtitle), 'ov');
         }
 
-        const finalPath = await execFFmpegCommand(command, videoConfig, resultPath);
+        let lastPath = await execFFmpegCommand(command, resultPath);
 
-        pathsToMerge.push(finalPath);
+        if(index >= 0){
+            let fadeInCommand = await applyFadeInFilter(lastPath);
+            lastPath = lastPath+'.fadeIn.mov';
+            await execFFmpegCommand(fadeInCommand, lastPath);
+        }
+
+        if(index < videos.length-1){
+            let fadeOutCommand = await applyFadeOutFilter(lastPath);
+            lastPath = lastPath + '.fadeOut.mov';
+            await execFFmpegCommand(fadeOutCommand, lastPath);
+        }
+
+        pathsToMerge.push(lastPath);
         index++;
     }
 
@@ -262,6 +277,61 @@ async function execFFmpegCommand(command: FfmpegCommand, resultPath: string):Pro
 async function removeFiles(paths:string[]){
     const tasks = paths.map((path) => fs.unlink(path));
     await Promise.all(tasks);
+}
+
+async function applyFadeInFilter(path: string, fadetype?:string): Promise<ffmpeg.FfmpegCommand> {
+    const command = ffmpeg(path);
+    const fadeDuration:number = config.get('report.fade.duration') as number / 2;
+
+    const vFadeIn:FilterSpecification = {
+        filter: 'fade',
+        options: {
+            type: 'in',
+            color: 'white',
+            duration: fadeDuration,
+        }
+    };
+
+    const aFadeIn:FilterSpecification = {
+        filter: 'afade',
+        options: {
+            type: 'in',
+            duration: fadeDuration,
+        }
+    }
+
+    command.complexFilter([vFadeIn, aFadeIn]);
+    return command;
+}
+
+async function applyFadeOutFilter(path: string, fadetype?:string): Promise<ffmpeg.FfmpegCommand> {
+    const command = ffmpeg(path);
+
+    const meta:ffmpeg.FfprobeFormat = await getVideoMeta(path);
+    const duration = meta.format.duration;
+    const fadeDuration:number = config.get('report.fade.duration') as number / 2;
+
+    const vFadeOut:FilterSpecification = {
+        filter: 'fade',
+        options: {
+            type: 'out',
+            color: 'white',
+            start_time: duration - fadeDuration,
+            duration: fadeDuration,
+        }
+    };
+
+    const aFadeOut:FilterSpecification = {
+        filter: 'afade',
+        options: {
+            type: 'out',
+            start_time: duration - fadeDuration,
+            duration: fadeDuration,
+        }
+    }
+
+    command.complexFilter([vFadeOut, aFadeOut]);
+    return command;
 }
 
 async function prepareTransitionFilters(paths: string[], fadetype?:string) {
