@@ -67,8 +67,10 @@ let emptyCounter = 0;
     let videoTitle:string = config.has('report.title.text') ? config.get('report.title.text') : '';
     if(config.has('report.results')){
         const matchResults = await fetchResults(config.get('report.results'));
-        for(let result of matchResults.stages)
+				for(let result of matchResults.stages){
+						if(result.result == undefined) continue;
             matchResultTexts.push(stageResultToOutput(result, config.get('report.results-template')));
+				}
 
         videoTitle = renderTitle(matchResults, config.get('report.title-template'));
     }
